@@ -44,5 +44,18 @@ async function verify(req, res, next) {
      }
 }
 
+async function send(req, res, next) {
+     try {
+          const response = await authService.sendOtp(req);
+          res.status(200).json({
+               status: "OK",
+               code: "200",
+               message: "OTP HAS BEEN SENT TO EMAIL"
+          })
+     } catch (err) {
+          return next(err);
+     }
+}
+
 // Exports
-module.exports = { register, login, verify }
+module.exports = { register, login, verify, send }

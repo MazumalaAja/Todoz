@@ -1,8 +1,7 @@
 // Imports
 const usersModel = require("../api/models/users.model");
 const verificationsModel = require("../api/models/verifications.model");
-const { BadRequest, Conflict } = require("../errors");
-const { Unauthorized } = require("../errors/unauthorized");
+const { BadRequest, Conflict, NotFound } = require("../errors");
 const { compareData, hashData } = require("../utils/bcrypt");
 const generateOTP = require("../utils/generateOtp");
 const { createToken } = require("../utils/jsonwebtoken");
@@ -17,10 +16,10 @@ const authService = {
           const dataUser = { username, email, password }
 
           // Validation
-          if (!username || !email || !password || !password_confirmation) throw new BadRequest("all columns are required to be filled in");
-          if (password !== password_confirmation) throw new BadRequest("Password confirmation doesn't match");
+          if (!username || !email || !password || !password_confirmation) throw new BadRequest("ALL COLUMNS ARE REQUIRED TO BE FILLED IN");
+          if (password !== password_confirmation) throw new BadRequest("PASSWORD CONFIRMATION DOESN'T MATCH");
           const userExist = await usersModel.findOne({ email });
-          if (userExist) throw new Conflict("Email already exist or has been used");
+          if (userExist) throw new Conflict("EMAIL ALREADY EXIST OR EMAIL HAS BEEN USED");
 
           // New User
           const newUser = await usersModel.create(dataUser);
@@ -52,9 +51,9 @@ const authService = {
           const user = await usersModel.findOne({ email });
 
           // Validation
-          if (!email || !password) throw new BadRequest("all columns are required to be filled in");
-          if (!user) throw new BadRequest("Email doesn't exist or is not registered");
-          if (!await compareData(password, user.password)) throw new BadRequest("Login failed");
+          if (!email || !password) throw new BadRequest("ALL COLUMNS ARE REQUIRED TO BE FILLED IN");
+          if (!user) throw new BadRequest("EMAIL DOESN'T EXIST OR IS NOTt REGISTERED");
+          if (!await compareData(password, user.password)) throw new BadRequest("LOGIN FAILED");
 
           // Genarate Token
           const token = createToken({
@@ -69,18 +68,36 @@ const authService = {
           // Request body
           const { otp } = req.body;
           const verification = await verificationsModel.findOne({ email: req.user_email });
-          console.log(req.userEmail);
 
           // validation
-          if (!otp) throw new BadRequest("all columns are required to be filled in");
-          if (!verification) throw new Unauthorized("Invalid authorization");
-          if (!await compareData(otp, verification.otp_hash)) throw new BadRequest("Invalid OTP")
+          if (!otp) throw new BadRequest("ALL COLUMNS ARE REQUIRED TO BE FILLED IN");
+          if (!verification) throw new NotFound("OTP NOT FOUND")
+          if (verification.is_used) throw new BadRequest("OTP HAS BEEN USED");
+          if (!await compareData(otp, verification.otp_hash)) throw new BadRequest("INVALID OTP")
 
-          // Update user status
+          // Update user and verification model 
+          await verificationsModel.findOneAndUpdate({ user_email: req.userEmail }, { is_used: true });
           await usersModel.findOneAndUpdate({ email: req.userEmail }, { is_Active: true });
      },
      sendOtp: async (req) => {
+          // User
+          const user = await usersModel.findOne({ email: req.userEmail });
 
+          // Validation
+          if (!user) throw new NotFound("USER NOT FOUND");
+
+          // Generate OTP 
+          const OTP = generateOTP();
+          await verificationsModel.findOneAndDelete({ user_email: req.userEmail });
+          await verificationsModel.create({
+               user_email: req.userEmail,
+               purpose: "registration",
+               otp_hash: OTP,
+               expiresAt: new Date(Date.now() + (1000 * 60 * 5))
+          });
+
+          // Send to user email
+          await sendEmail(user.email, OTP);
      }
 }
 

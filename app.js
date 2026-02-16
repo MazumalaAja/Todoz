@@ -10,6 +10,7 @@ const welcome = require("./app/api/routes/welcome.route");
 const auth = require("./app/api/routes/auth.route");
 const errorMiddleware = require('./app/middleware/errorMiddleware');
 const { notFoundMiddleware } = require('./app/middleware/notFoundMiddleware');
+const users = require("./app/api/routes/users.route");
 const baseURL = "/api/"
 
 // Express-setup
@@ -22,6 +23,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 // My-setup
 app.use(baseURL, welcome);
 app.use(baseURL, auth);
+app.use(baseURL, users);
 app.use(errorMiddleware);
 app.use(notFoundMiddleware);
 
